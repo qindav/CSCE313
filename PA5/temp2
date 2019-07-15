@@ -1,0 +1,205 @@
+
+
+/*
+    Based on original assignment by: Dr. R. Bettati, PhD
+    Department of Computer Science
+    Texas A&M University
+    Date  : 2013/01/31
+ */
+
+
+#include <iostream>
+#include <fstream>
+#include <cstring>
+#include <string>
+#include <sstream>
+#include <iomanip>
+
+#include <sys/time.h>
+#include <cassert>
+#include <assert.h>
+#include <chrono>
+
+#include <cmath>
+#include <numeric>
+#include <algorithm>
+
+#include <list>
+#include <vector>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <unistd.h>
+#include <pthread.h>
+
+#include "reqchannel.h"
+#include "BoundedBuffer.h"
+#include "Histogram.h"
+using namespace std;
+
+
+struct reqThread{
+    int n;
+    string clientName;
+    BoundedBuffer *buffer;
+};
+
+struct workThread{
+    //BoundedBuffer *responseBuffer[3];
+    BoundedBuffer *responseBuffer;
+    BoundedBuffer *requestBuffer;
+    RequestChannel* workerChannel;
+    int ID;
+   
+};
+
+struct statisticsThread{
+    int n;
+    string request;
+    BoundedBuffer *responseBuffer;
+    Histogram *hist;
+  
+}input1,input2,input3;
+
+struct quitThread{
+    int w;
+    BoundedBuffer *buffer;
+};
+void* request_thread_function(void* arg) {
+     
+	reqThread *input = (reqThread*)arg;
+   
+	
+    for(int i = 0; i < (*input).n; ++i) {
+     (*input).buffer->push("data " + (*input).clientName);
+      cout << (*input).clientName;
+      cout << "-push request";
+      cout << i<<endl;
+      
+    }
+    pthread_exit(NULL);
+}
+
+void* quit_thread_function(void* arg) {
+     
+	quitThread *input = (quitThread*)arg;
+   
+	cout << "Quit thread" <<endl;
+	cout << (*input).w<<endl;
+    for(int i = 0; i < (*input).w; ++i) {
+      cout << "-push quit";
+      cout << i<<endl;
+      (*input).buffer->push("data John Smith");
+      cout<<"done quit"<<endl;
+    }
+    pthread_exit(NULL);
+}
+
+void* worker_thread_function(void* arg) {
+    
+    
+    	
+    workThread *input = (workThread*)arg;
+    
+   
+	 
+    while(true) {
+        //for(int i=0; i<10;++i) {
+        string request = (*input).requestBuffer->pop();
+        cout<<"Work:";
+        cout <<(*input).ID;
+		cout << ":POP"+request<<endl;
+
+        	 
+        if(request == "quit") {
+		    cout<<"QUIT DONe";
+		 
+            break;
+        }
+        else{
+            
+			BoundedBuffer *responseBuffer = (*input).responseBuffer;
+			responseBuffer->push(request);
+			cout<<"Response with request w:" + request <<endl;
+        }
+       ///}
+        //break;
+    }
+    
+}
+
+void* stat_thread_function(void* arg) {
+    /*
+		Fill in this function. 
+
+		There should 1 such thread for each person. Each stat thread 
+        must consume from the respective statistics buffer and update
+        the histogram. Since a thread only works on its own part of 
+        histogram, does the Histogram class need to be thread-safe????
+
+     */
+     
+    statisticsThread *input = (statisticsThread*)arg;
+    Histogram *hist = (*input).hist;
+    for(int i = 0; i < 10; ++i) {
+        string response = (*input).responseBuffer->pop();
+        //hist->update ((*input).request, response);
+        cout<<(*input).request + ":update:"+response <<endl;
+    }
+}
+
+
+/*--------------------------------------------------------------------------*/
+/* MAIN FUNCTION */
+/*--------------------------------------------------------------------------*/
+
+int main(int argc, char * argv[]) {
+   
+    
+    auto start = std::chrono::steady_clock::now();
+    
+        
+		BoundedBuffer request_buffer(10);
+
+	 	reqThread John;
+        John.n = 10; 
+        John.clientName = "John Smith"; 
+        John.buffer = &request_buffer;
+        pthread_t thread_id_John;
+
+	    BoundedBuffer response_buffer(10);
+		pthread_t thread_id_Work;
+		workThread inputs;
+        inputs.ID = 1; 
+        inputs.requestBuffer = &request_buffer;
+        inputs.responseBuffer = &response_buffer;
+        
+        //input1.hist = &hist;
+        input1.responseBuffer = &response_buffer;
+        input1.n=10;
+        input1.request = "data John Smith"; 
+        pthread_t s1;
+
+        pthread_create(&thread_id_Work, NULL, worker_thread_function, (void*)&inputs); 
+	    pthread_create(& thread_id_John, NULL, request_thread_function, (void*)&John);
+        pthread_create(&s1, NULL, stat_thread_function, (void*)&input1);
+
+        
+        pthread_join(thread_id_John, 0);
+        request_buffer.push("quit");
+
+        pthread_join(thread_id_Work, 0);
+        pthread_join(s1, 0);
+
+        cout << "Done populating request buffer" << endl;
+      
+            cout << "quit" ;
+
+        cout << "All Done!!!" << endl;
+        auto end = std::chrono::steady_clock::now();
+        double nsec = std::chrono::nanoseconds(end - start).count();
+        cout << "Time taken: " << nsec/1000000000.0 << "s" << std::endl;
+		//hist.print ();
+     
+}

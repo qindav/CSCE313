@@ -1,0 +1,46 @@
+#include "functions.h"
+
+using namespace std;
+
+string sprompt;
+
+int main(int argc, char* argv[]) {
+	bool wantInfo = false;
+	bool wantEmpty = false;
+	vector<string> commandsList;
+	//Shell format based on -p -t flags
+	sprompt = "Shell>";
+	if(argc > 1){
+		if(strcmp(argv[1],"-t")==0){
+			wantEmpty = true;
+		}
+		if(strcmp(argv[1],"-p")==0){
+			wantInfo = true;
+		}
+   }
+   
+	//Print Title
+	cout << "This is my shell" << endl;
+ 
+	while (1) {
+   
+	//Shell Display
+	cout<<getprompt(wantInfo, wantEmpty);
+    commandsList = read_command();
+	
+	//Determines how to run the line
+    if(commandsList.size() == 0){}
+    else if(commandsList.size()==1){
+      std::size_t p = commandsList[0].find("&");
+      if(p !=std::string::npos)
+         run_command_without_pipe(commandsList[0]);//only run & commands;
+      else
+        run_commands(commandsList);
+    }
+    else
+      run_commands(commandsList);
+    //cout<<"end of commands"<<endl;
+	}
+ 
+	return 0;
+}
